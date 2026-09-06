@@ -1,11 +1,38 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Document } from "@langchain/core/documents";
+import { encoding_for_model } from "tiktoken";
 
+/**
+ * Token encoder used for measuring chunk size.
+ *
+ * text-embedding-3-small supports a maximum input
+ * of 8192 tokens, so we keep our chunks comfortably
+ * below that limit.
+ */
+const encoder = encoding_for_model("text-embedding-3-small");
+
+/**
+ * Chunk one SRT Document.
+ *
+ * Requirements:
+ * - Uses LangChain RecursiveCharacterTextSplitter
+ * - chunkSize is measured in tokens
+ * - pageContent contains text only
+ * - Timestamps are preserved in metadata
+ * - Subtitle/timestamp overlap is supported
+ * - Never crosses an episode boundary
+ *
+ * @param {Document} document
+ * @param {Object} options
+ * @param {number} options.chunkSize Maximum number of tokens
+ * @param {number} options.subtitleOverlap Number of subtitle entries to overlap
+ * @returns {Promise<Document[]>}
+ */
 export async function chunkSubtitleDocument(
   document,
   {
-    chunkSize = 1000,
-    timestampOverlap = 2,
+    chunkSize = 600,
+    subtitleOverlap = 2,
   } = {}
 ) {
   const entries = document.metadata.entries;
@@ -15,12 +42,21 @@ export async function chunkSubtitleDocument(
   }
 
   /*
-   * RecursiveCharacterTextSplitter is used to determine
-   * the desired chunk size.
+   * RecursiveCharacterTextSplitter normally measures
+   * chunk size using JavaScript string length.
+   *
+   * We replace that with tiktoken so chunkSize means
+   * TOKENS instead of characters.
    */
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize,
     chunkOverlap: 0,
+
+    lengthFunction: (text) => {
+      return encoder.encode(text).length;
+    },
+
+    separators: ["\n\n", "\n", " ", ""],
   });
 
   const chunks = [];
@@ -33,45 +69,41 @@ export async function chunkSubtitleDocument(
       entry,
     ];
 
-    const candidateText = formatEntries(
-      candidateEntries
-    );
+    const candidateText =
+      formatEntries(candidateEntries);
 
-    const splitCandidate =
+    /*
+     * Ask LangChain whether the candidate fits
+     * within our token limit.
+     */
+    const splitResult =
       await splitter.splitText(candidateText);
 
     /*
-     * If adding this subtitle causes the candidate
-     * to exceed chunkSize, finalize the current chunk.
+     * If LangChain produces multiple pieces,
+     * adding this subtitle exceeded chunkSize.
      */
     if (
-      splitCandidate.length > 1 &&
+      splitResult.length > 1 &&
       currentEntries.length > 0
     ) {
       chunks.push(
-        createChunk(
-          document,
-          currentEntries
-        )
+        createChunk(document, currentEntries)
       );
 
       /*
-       * Keep the last N subtitle entries.
-
-       * This is timestamp overlap.
+       * Preserve the last N complete subtitle entries.
        *
-       * timestampOverlap = 2
+       * Example with subtitleOverlap = 2:
        *
        * Chunk 1:
-       *   1 2 3 4 5
+       * 1 2 3 4 5 6
        *
        * Chunk 2:
-       *   4 5 6 7 8
+       *         5 6 7 8 9 10
        */
       const overlapEntries =
-        currentEntries.slice(
-          -timestampOverlap
-        );
+        currentEntries.slice(-subtitleOverlap);
 
       currentEntries = [
         ...overlapEntries,
@@ -87,28 +119,30 @@ export async function chunkSubtitleDocument(
    */
   if (currentEntries.length > 0) {
     chunks.push(
-      createChunk(
-        document,
-        currentEntries
-      )
+      createChunk(document, currentEntries)
     );
   }
 
   return chunks;
 }
 
+
+/**
+ * Create the final LangChain Document.
+ */
 function createChunk(document, entries) {
   const firstEntry = entries[0];
-  const lastEntry =
-    entries[entries.length - 1];
+  const lastEntry = entries[entries.length - 1];
+
+  const pageContent = entries
+    .map((entry) => entry.text)
+    .join("\n\n");
 
   return new Document({
     /*
-     * FINAL pageContent contains ONLY subtitle text.
+     * Only subtitle text goes into pageContent.
      */
-    pageContent: entries
-      .map((entry) => entry.text)
-      .join("\n\n"),
+    pageContent,
 
     metadata: {
       source: document.metadata.source,
@@ -120,25 +154,32 @@ function createChunk(document, entries) {
       type: "subtitle",
 
       /*
-       * Timestamp information is metadata.
+       * Timestamp information.
        */
       startTime: firstEntry.start,
       endTime: lastEntry.end,
 
+      /*
+       * Original SRT subtitle numbers.
+       */
       startSubtitleIndex: firstEntry.index,
       endSubtitleIndex: lastEntry.index,
 
       subtitleCount: entries.length,
+
+      /*
+       * Useful for debugging.
+       */
+      tokenCount: encoder.encode(pageContent).length,
     },
   });
 }
 
-function formatEntries(entries) {
-  /*
-   * Used ONLY while determining chunk size.
 
-   * This is not the final pageContent.
-   */
+/**
+ * Convert subtitle entries into plain text.
+ */
+function formatEntries(entries) {
   return entries
     .map((entry) => entry.text)
     .join("\n\n");
