@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from '@langchain/qdrant';
 import OpenAI from 'openai';
+import { generateAllQueryTransforms } from './queryTranslation.js';
 
 dotenv.config();
 
@@ -42,7 +43,7 @@ async function query(userQuery) {
 
    Always answer the user in short and tell on which module, episode and timestamp that content is available.
    User Documents:
-   ${results.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.content, startTime: e.metadata.startTime, endTime: e.metadata.endTime})).join('\n\n')}
+   ${results.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.content, startTime: e.metadata.startTime, endTime: e.metadata.endTime })).join('\n\n')}
   `
   const response = await client.responses.create({
     model: 'gpt-4o-mini',
@@ -53,4 +54,22 @@ async function query(userQuery) {
   console.log('LLM Response:', response.output_text);
 }
 
-query('Tell me something about expo router')
+
+const {
+  stepback,
+  subquestion,
+  abstraction,
+  rewriting,
+} =  await generateAllQueryTransforms("What is expo?");
+
+
+const rewrittenQueries = `
+${stepback.output},
+${subquestion.output.join(", ")},
+${abstraction.high_ab_output},
+${abstraction.less_ab_output},
+${rewriting.output}
+`;
+
+
+query(rewrittenQueries);
