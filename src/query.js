@@ -3,12 +3,19 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from '@langchain/qdrant';
 import OpenAI from 'openai';
 import { generateAllQueryTransforms } from './queryTranslation.js';
+import { CohereRerank } from "@langchain/cohere";
 
 dotenv.config();
 
 const client = new OpenAI({
   baseURL: `https://aicredits.in/v1`,
   apiKey: process.env.OPENAI_API_KEY,
+});
+
+const cohereRerank = new CohereRerank({
+  apiKey: process.env.COHERE_API_KEY, // Default
+  topN: 5,
+  model: "rerank-v4.0-pro",
 });
 
 async function query(userQuery) {
@@ -33,8 +40,12 @@ async function query(userQuery) {
   );
   // get similar vectors and chunks?
 
-  const vectorRetriver = vectorStore.asRetriever({ k: 12 });
-  const results = await vectorRetriver.invoke(userQuery);
+  const vectorRetriver = vectorStore.asRetriever({ k: 20 });
+  const docs = await vectorRetriver.invoke(userQuery);
+
+  const rerankedDocuments = await cohereRerank.compressDocuments(docs, userQuery);
+  console.log(rerankedDocuments);
+
   // feed those chunks to llm models and do a simple chat with {userQuery}
   const SYSTEM_PROMPT = `
    You are an expert in answering user query based on the provided
@@ -43,7 +54,7 @@ async function query(userQuery) {
 
    Always answer the user in short and tell on which module, episode and timestamp that content is available.
    User Documents:
-   ${results.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.pageContent, startTime: e.metadata.startTime, endTime: e.metadata.endTime })).join('\n\n')}
+   ${rerankedDocuments.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.pageContent, startTime: e.metadata.startTime, endTime: e.metadata.endTime })).join('\n\n')}
   `
   const response = await client.responses.create({
     model: 'gpt-4o-mini',
@@ -63,7 +74,7 @@ const {
   abstraction,
   rewriting,
   hyde,
-} =  await generateAllQueryTransforms("What is expo?");
+} =  await generateAllQueryTransforms("How is expo different from react? Give 5 differences.");
 
 
 const rewrittenQueries = `
