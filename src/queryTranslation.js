@@ -72,6 +72,16 @@ OUTPUT_FORMAT:
 }
 `;
 
+const HYDE_SYS_PROMPT = `
+Given a question/query generate a document no more than 100 words that answers that question.
+
+OUTPUT_FORMAT:
+{
+"output": "..."
+}
+`;
+
+
 async function generateQueryTransform(query, instructions) {
   const response = await client.responses.create({
     model: "gpt-5-nano",
@@ -86,11 +96,12 @@ async function generateQueryTransform(query, instructions) {
 
 
 export async function generateAllQueryTransforms(query) {
-  const [stepback, subquestion, abstraction, rewriting] = await Promise.all([
+  const [stepback, subquestion, abstraction, rewriting, hyde] = await Promise.all([
     generateQueryTransform(query, STEPBACK_SYSTEM_PROMPT),
     generateQueryTransform(query, SUBQUESTION_SYS_PROMPT),
     generateQueryTransform(query, ABSTRACTION_SYS_PROMPT),
     generateQueryTransform(query, REWRITING_SYS_PROMPT),
+    generateQueryTransform(query, HYDE_SYS_PROMPT),
   ]);
 
   return {
@@ -98,5 +109,6 @@ export async function generateAllQueryTransforms(query) {
     subquestion,
     abstraction,
     rewriting,
+    hyde,
   };
 }
