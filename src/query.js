@@ -33,7 +33,7 @@ async function query(userQuery) {
   );
   // get similar vectors and chunks?
 
-  const vectorRetriver = vectorStore.asRetriever({ k: 5 });
+  const vectorRetriver = vectorStore.asRetriever({ k: 12 });
   const results = await vectorRetriver.invoke(userQuery);
   // feed those chunks to llm models and do a simple chat with {userQuery}
   const SYSTEM_PROMPT = `
@@ -43,13 +43,15 @@ async function query(userQuery) {
 
    Always answer the user in short and tell on which module, episode and timestamp that content is available.
    User Documents:
-   ${results.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.content, startTime: e.metadata.startTime, endTime: e.metadata.endTime })).join('\n\n')}
+   ${results.map((e) => JSON.stringify({ module: e.metadata.module, episode: e.metadata.episode, content: e.pageContent, startTime: e.metadata.startTime, endTime: e.metadata.endTime })).join('\n\n')}
   `
   const response = await client.responses.create({
     model: 'gpt-4o-mini',
     instructions: SYSTEM_PROMPT,
     input: `${userQuery}`,
   });
+
+  //console.log('SYSTEM PROMPT: ', SYSTEM_PROMPT);
 
   console.log('LLM Response:', response.output_text);
 }
@@ -60,6 +62,7 @@ const {
   subquestion,
   abstraction,
   rewriting,
+  hyde,
 } =  await generateAllQueryTransforms("What is expo?");
 
 
@@ -69,6 +72,7 @@ ${subquestion.output.join(", ")},
 ${abstraction.high_ab_output},
 ${abstraction.less_ab_output},
 ${rewriting.output}
+${hyde.output}
 `;
 
 
