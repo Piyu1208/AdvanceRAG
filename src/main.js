@@ -4,7 +4,7 @@ import { QdrantVectorStore } from "@langchain/qdrant";
 import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./queryTranslation.js";
 import { CohereRerank } from "@langchain/cohere";
-import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT } from "./prompts.js";
+import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
 
 dotenv.config();
 
@@ -44,6 +44,7 @@ async function main(userQuery) {
   let rewrittenQueries;
   let docs;
   let rerankedDocuments;
+  let feedbackQuery;
 
 
   // Initialise the vector store
@@ -83,9 +84,19 @@ async function main(userQuery) {
 
     if (failure_type === 'retrieval') {
       console.log('Retrieval failure.');
-      // add misssing keywords to rewrittenQueries
+
+      // rewrite user query to include feedback info/keywords
       let missing_info = feedback.missing_information.join(", ");
-      rewrittenQueries += ", " + missing_info;
+
+      feedbackQuery = await client.responses.create({
+        model: "gpt-4o-mini",
+        instructions: REWRITTER_PROMPT,
+        input: `User Query: ${userQuery},
+        Information to include: ${missing_info}`,
+      });
+
+      feedbackQuery = JSON.parse(feedbackQuery.output_text).output;
+      console.log('Generating reponse...');
 
       // Get Docs from vector store
       docs = await vectorRetriver.invoke(rewrittenQueries);
@@ -114,7 +125,7 @@ async function main(userQuery) {
           endTime: e.metadata.endTime
         })).join("\n\n")}, 
 
-      User Query: ${userQuery}`,
+      User Query: ${feedbackQuery || userQuery}`,
     });
     console.log('Generating reponse...');
 
@@ -154,7 +165,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("What is expo? Why use it? What are 5-6 differences with react?");
+const answer = await main("What is Expo? How does it enable gestures used on mobile screens? Explain in detail in more than 150 words.");
 
 console.log('FINAL ANSWER: ', answer);
 
@@ -213,7 +224,7 @@ for (i=0; i<MAX_RETRIES; i++) {
    };
 
    if (failure_type && failure_type === retrieval) {
-      1. rewrittenQuery += missingInfo
+      1. userQuery + feedbackKeywords => QueryTranslation
       2. Get similar vectors and documents using rewritten query.
       3. Rerank documents.
    };
