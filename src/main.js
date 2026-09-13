@@ -57,13 +57,8 @@ async function main(userQuery) {
   const vectorRetriver = vectorStore.asRetriever({ k: 20 });
 
 
-  // declare failure_type variable
-
-  // const SYS_PRMOPT
-
-  // declare retry = false
-
   for (let i = 0; i <= MAX_RETRIES; i++) {
+    console.log('Loop number: ', i + 1);
     if (i === 0) {
       // Rewrite user query => (rewrittenQuery)
       const { stepback, subquestion, abstraction, rewriting, hyde } =
@@ -84,56 +79,6 @@ async function main(userQuery) {
         docs,
         rewrittenQueries,
       );
-
-      // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
-      response = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: SYSTEM_PROMPT,
-        input: `User Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")}, 
-
-      User Query: ${userQuery}`,
-      });
-      console.log('Generating reponse...');
-
-      // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
-      feedback = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: JUDGE_SYS_PROMPT,
-        input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")},
-
-        User Query: ${userQuery},
-
-        Answer: ${response.output_text}
-            `,
-      });
-
-      
-
-      feedback = JSON.parse(feedback.output_text);
-      console.log('Feedback: ', feedback);
-      retry = feedback.retry;
-
-      if (!retry) {
-        console.log('Success in first attempt.')
-        return response.output_text;
-      } else {
-        console.log('Retrying...');
-        failure_type = feedback.failure_type;
-      }
     }
 
     if (failure_type === 'retrieval') {
@@ -150,115 +95,66 @@ async function main(userQuery) {
         docs,
         rewrittenQueries,
       );
-
-      // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
-      response = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: SYSTEM_PROMPT,
-        input: `User Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")}, 
-
-      User Query: ${userQuery}`,
-      });
-      console.log('Generating reponse...');
-
-      // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
-      feedback = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: JUDGE_SYS_PROMPT,
-        input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")},
-
-        User Query: ${userQuery},
-
-        Answer: ${response.output_text}
-            `,
-      });
-
-      
-
-      feedback = JSON.parse(feedback.output_text);
-      console.log("Feedback: ", feedback);
-      retry = feedback.retry;
-
-      if (!retry || (i === MAX_RETRIES)) {
-        console.log('Success');
-        return response.output_text;
-      } else {
-        console.log('Retrying...');
-        failure_type = feedback.failure_type;
-      }
     }
 
     if (failure_type === 'generation') {
       console.log('Generation failure.');
-      // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
-      response = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: SYSTEM_PROMPT,
-        input: `User Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")}, 
+    }
+
+    // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
+    response = await client.responses.create({
+      model: "gpt-4o-mini",
+      instructions: SYSTEM_PROMPT,
+      input: `User Documents: ${rerankedDocuments.map((e) =>
+        JSON.stringify({
+          module: e.metadata.module,
+          episode: e.metadata.episode,
+          content: e.pageContent,
+          startTime: e.metadata.startTime,
+          endTime: e.metadata.endTime
+        })).join("\n\n")}, 
 
       User Query: ${userQuery}`,
-      });
-      console.log('Generating reponse...');
+    });
+    console.log('Generating reponse...');
 
-      // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
-      feedback = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: JUDGE_SYS_PROMPT,
-        input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
-          JSON.stringify({
-            module: e.metadata.module,
-            episode: e.metadata.episode,
-            content: e.pageContent,
-            startTime: e.metadata.startTime,
-            endTime: e.metadata.endTime
-          })).join("\n\n")},
+    // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
+    feedback = await client.responses.create({
+      model: "gpt-4o-mini",
+      instructions: JUDGE_SYS_PROMPT,
+      input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
+        JSON.stringify({
+          module: e.metadata.module,
+          episode: e.metadata.episode,
+          content: e.pageContent,
+          startTime: e.metadata.startTime,
+          endTime: e.metadata.endTime
+        })).join("\n\n")},
 
         User Query: ${userQuery},
 
         Answer: ${response.output_text}
             `,
-      });
+    });
 
-      
 
-      feedback = JSON.parse(feedback.output_text);
-      console.log("Feedback: ", feedback);
-      retry = feedback.retry;
 
-      if (!retry || (i === MAX_RETRIES)) {
-        console.log('Success.');
-        return response.output_text;
-      } else {
-        console.log('Retrying...');
-        failure_type = feedback.failure_type;
-      }
+    feedback = JSON.parse(feedback.output_text);
+    console.log("Feedback: ", feedback);
+    retry = feedback.retry;
+
+    if (!retry || (i === MAX_RETRIES)) {
+      console.log('Success.');
+      return response.output_text;
+    } else {
+      console.log('Retrying...');
+      failure_type = feedback.failure_type;
     }
   };
 };
 
 
-const answer = await main('What are 5 differences between expo and react?');
+const answer = await main("What is expo? Why use it? What are 5-6 differences with react?");
 
 console.log('FINAL ANSWER: ', answer);
 
@@ -303,6 +199,35 @@ for (i=0; i<MAX_RETRIES; i++) {
 
 console.log(response);
 
+
+*/
+
+
+/*
+for (i=0; i<MAX_RETRIES; i++) {
+   
+   if (i=0) {
+       1. Rewrite user query. (rewritten query)
+       2. Get similar vectors and documents using rewritten query.
+       3. Rerank documents.
+   };
+
+   if (failure_type && failure_type === retrieval) {
+      1. rewrittenQuery += missingInfo
+      2. Get similar vectors and documents using rewritten query.
+      3. Rerank documents.
+   };
+
+
+   1.  SYS_PROMPT = SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
+   2. JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
+   3. If (retry === false) || (i === MAX_RETRIES):
+            return the response.
+          else:
+            failure_type = retrieval/generation
+}
+
+console.log(response);
 
 
 */
