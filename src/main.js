@@ -60,10 +60,26 @@ async function main(userQuery) {
 
   for (let i = 0; i <= MAX_RETRIES; i++) {
     console.log('Loop number: ', i + 1);
-    if (i === 0) {
+    if ((i === 0) || (failure_type === 'retrieval')) {
+
+      if (i > 0) {
+        console.log('Retrieval failure.');
+
+        // rewrite user query to include feedback info/keywords
+        let missing_info = feedback.missing_information.join(", ");
+
+        feedbackQuery = await client.responses.create({
+          model: "gpt-4o-mini",
+          instructions: REWRITTER_PROMPT,
+          input: `User Query: ${userQuery},
+        Information to include: ${missing_info}`,
+        });
+
+        feedbackQuery = JSON.parse(feedbackQuery.output_text).output;
+      }
       // Rewrite user query => (rewrittenQuery)
       const { stepback, subquestion, abstraction, rewriting, hyde } =
-        await generateAllQueryTransforms(userQuery);
+        await generateAllQueryTransforms(feedbackQuery || userQuery);
 
       rewrittenQueries = `${stepback.output}, 
     ${subquestion.output.join(", ")}, 
@@ -75,32 +91,6 @@ async function main(userQuery) {
       // Get documents from vector store.
       docs = await vectorRetriver.invoke(rewrittenQueries);
 
-      // Rank documents
-      rerankedDocuments = await cohereRerank.compressDocuments(
-        docs,
-        rewrittenQueries,
-      );
-    }
-
-    if (failure_type === 'retrieval') {
-      console.log('Retrieval failure.');
-
-      // rewrite user query to include feedback info/keywords
-      let missing_info = feedback.missing_information.join(", ");
-
-      feedbackQuery = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: REWRITTER_PROMPT,
-        input: `User Query: ${userQuery},
-        Information to include: ${missing_info}`,
-      });
-
-      feedbackQuery = JSON.parse(feedbackQuery.output_text).output;
-      console.log('Generating reponse...');
-
-      // Get Docs from vector store
-      docs = await vectorRetriver.invoke(rewrittenQueries);
-      console.log('Refetching documents...');
       // Rank documents
       rerankedDocuments = await cohereRerank.compressDocuments(
         docs,
@@ -125,7 +115,7 @@ async function main(userQuery) {
           endTime: e.metadata.endTime
         })).join("\n\n")}, 
 
-      User Query: ${feedbackQuery || userQuery}`,
+      User Query: ${userQuery}`,
     });
     console.log('Generating reponse...');
 
@@ -217,16 +207,14 @@ console.log(response);
 /*
 for (i=0; i<MAX_RETRIES; i++) {
    
-   if (i=0) {
-       1. Rewrite user query. (rewritten query)
+   if (i===0 || failure_type === retrieval) {
+
+      if (i > 0) {
+        1. feedbackKeywords + userQuery => newQuery
+      }
+       1. Rewrite user query. (rewritten query) uses newQuery if it exists else the userQuery.
        2. Get similar vectors and documents using rewritten query.
        3. Rerank documents.
-   };
-
-   if (failure_type && failure_type === retrieval) {
-      1. userQuery + feedbackKeywords => QueryTranslation
-      2. Get similar vectors and documents using rewritten query.
-      3. Rerank documents.
    };
 
 
