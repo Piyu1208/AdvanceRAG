@@ -145,6 +145,7 @@ function createChunk(document, entries) {
     pageContent,
 
     metadata: {
+      id: `${document.metadata.module}|${document.metadata.episode}|${firstEntry.index}-${lastEntry.index}`,
       source: document.metadata.source,
       filename: document.metadata.filename,
 
