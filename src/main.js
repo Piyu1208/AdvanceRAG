@@ -45,6 +45,8 @@ async function main(userQuery) {
   let docs;
   let rerankedDocuments;
   let feedbackQuery;
+  let uniqueDocs;
+  let retrievedDocs;
 
 
   // Initialise the vector store
@@ -81,20 +83,32 @@ async function main(userQuery) {
       const { stepback, subquestion, abstraction, rewriting, hyde } =
         await generateAllQueryTransforms(feedbackQuery || userQuery);
 
-      rewrittenQueries = `${stepback.output}, 
-    ${subquestion.output.join(", ")}, 
-    ${abstraction.high_ab_output}, 
-    ${abstraction.less_ab_output}, 
-    ${rewriting.output}, 
-    ${hyde.output},`;
+      // Keep every tranformed query in an array
+      rewrittenQueries = [stepback.output, 
+        ...subquestion.output, 
+        abstraction.high_ab_output, 
+        abstraction.less_ab_output, 
+        rewriting.output, 
+        hyde.output
+      ].filter(Boolean);
 
-      // Get documents from vector store.
-      docs = await vectorRetriver.invoke(rewrittenQueries);
+      // Run vector search for each query
+      retrievedDocs = await Promise.all(
+        rewrittenQueries.map((query) => vectorRetriver.invoke(query))
+      );
+
+      docs = retrievedDocs.flat();
+
+      uniqueDocs = Array.from(
+        new Map(
+          docs.map((doc) => [doc.metadata.id, doc])
+        ).values()
+      );
 
       // Rank documents
       rerankedDocuments = await cohereRerank.compressDocuments(
-        docs,
-        rewrittenQueries,
+        uniqueDocs,
+        feedbackQuery || userQuery,
       );
     }
 
@@ -155,7 +169,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("What is Expo? How does it enable gestures used on mobile screens? Explain in detail in more than 150 words.");
+const answer = await main("What is Expo? What are 10 difference between expo and react?");
 
 console.log('FINAL ANSWER: ', answer);
 
