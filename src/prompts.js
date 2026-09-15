@@ -35,6 +35,7 @@ If it doesn't answer the user's query completely and it's retrieval problem.
   "Y's definition",
   "comparison between X and Y"
 ],
+"generation_feedback": []
 }
 
 If it doesn't answer the user's query completely and it's generation problem.
@@ -42,6 +43,10 @@ If it doesn't answer the user's query completely and it's generation problem.
 "retry": "true",
 "failure_type": "generation",
 "missing_information": [],
+"generation_feedback: [
+    "Explain the mechanism in more detail",
+    "Give an example"
+]
 }
 `;
 

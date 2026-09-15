@@ -114,6 +114,9 @@ async function main(userQuery) {
 
     if (failure_type === 'generation') {
       console.log('Generation failure.');
+      userQuery += `, ` + feedback.generation_feedback.join(', ');
+
+      console.log('Query with generation feedback: ', userQuery);
     }
 
     // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
