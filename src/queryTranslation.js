@@ -73,7 +73,12 @@ OUTPUT_FORMAT:
 `;
 
 const HYDE_SYS_PROMPT = `
-Given a question/query generate a document no more than 100 words that answers that question.
+Given a question/query generate a hypothetical document that could contain information needed to answers that question.
+
+- Generate a hypothetical document/information source, not a question or answer.
+- Do not mention the document is hypothetical.
+- Keep it under 250 words.
+- Return JSON only.
 
 OUTPUT_FORMAT:
 {

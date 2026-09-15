@@ -22,8 +22,9 @@ OUTPUT_FORMAT:
 If answer answer's the user query correctly.
 {
 "retry": false,
-"failure_type": "null",
-"missing_information": "null",
+"failure_type": null,
+"missing_information": null,
+"generation_feedback": null
 }
 
 
