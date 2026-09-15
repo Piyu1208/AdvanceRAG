@@ -71,7 +71,7 @@ async function main(userQuery) {
         let missing_info = feedback.missing_information.join(", ");
 
         feedbackQuery = await client.responses.create({
-          model: "gpt-4o-mini",
+          model: "gpt-5-nano",
           instructions: REWRITTER_PROMPT,
           input: `User Query: ${userQuery},
         Information to include: ${missing_info}`,
