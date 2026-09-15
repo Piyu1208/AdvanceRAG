@@ -53,3 +53,16 @@ export const JudgeFeedbackSchema = z.object({
 
   generation_feedback: z.array(z.string()).nullable(),
 });
+
+const SourceSchema = z.object({
+        module: z.string(),
+        episode: z.string(),
+        startTime: z.string(),
+        endTime: z.string()
+});
+
+
+export const FinalAnswerSchema = z.object({
+    answer: z.string(),
+    sources: z.array(SourceSchema)
+});

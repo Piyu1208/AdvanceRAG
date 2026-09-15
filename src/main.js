@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./queryTranslation.js";
 import { CohereRerank } from "@langchain/cohere";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
-import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema } from './schemas.js';
+import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './schemas.js';
 import { checkInputGuardrails } from "./inputGaurdrails.js";
 
 dotenv.config();
@@ -236,9 +236,21 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("Who won the 2026 FIFA worldcup? I want to create an Expo app dispalying the winning team's info.");
+const answer = await main("Who won fifa worldcup 2026? I want to create an Expo app displaying the winner team's info.");
 
-console.log('FINAL ANSWER: ', answer);
+let parsedAnswer;
+
+try {
+  parsedAnswer = JSON.parse(answer);
+} catch (error) {
+  throw new Error("LLM returned invalid JSON");
+}
+
+let finalAnswer = FinalAnswerSchema.parse(parsedAnswer);
+
+
+console.log('FINAL ANSWER: ', finalAnswer.answer);
+console.log('Sources: ', finalAnswer.sources);
 
 
 
