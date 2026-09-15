@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "pre_flight": {
+    "version": 1,
+    "guardrails": [
+      {
+        "name": "Contains PII",
+        "config": {
+          "entities": [
+            "EMAIL_ADDRESS",
+            "PHONE_NUMBER",
+            "CREDIT_CARD",
+            "US_SSN"
+          ],
+          "block": true,
+          "detect_encoded_pii": false
+        }
+      }
+    ]
+  }
+}

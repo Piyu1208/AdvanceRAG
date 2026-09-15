@@ -6,6 +6,7 @@ import { generateAllQueryTransforms } from "./queryTranslation.js";
 import { CohereRerank } from "@langchain/cohere";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
 import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema } from './schemas.js';
+import { checkInputPII } from "./inputGaurdrails.js";
 
 dotenv.config();
 
@@ -23,6 +24,12 @@ async function main(userQuery) {
   }
 
   userQuery = validation.data.query;
+
+  const isSafe = await checkInputPII(userQuery);
+
+  if (!isSafe) {
+    return "I can't process requests containing personal information.";
+  }
 
   //responses
   let feedback;
@@ -214,7 +221,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("What is Expo? What are 8 differences between expo and react?");
+const answer = await main("What is expo? Why use it? What are it's setup steps?");
 
 console.log('FINAL ANSWER: ', answer);
 
