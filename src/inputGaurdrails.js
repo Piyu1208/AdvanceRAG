@@ -10,18 +10,25 @@ const inputGuardrails = await GuardrailsOpenAI.create(
     true
 );
 
-export async function checkInputPII(query) {
+export async function checkInputGuardrails(query) {
     try {
         await inputGuardrails.responses.create({
             model: "gpt-4o-mini",
             input: query,
         });
 
-        return true;
+        return {
+            safe: true,
+            reason: null,
+        };
     } catch (error) {
         if (error instanceof GuardrailTripwireTriggered) {
-            console.log("❌ Input PII detected.");
-            return false;
+            console.log("❌ Guardrail triggered.");
+            console.dir(error.guardrailResult?.info, { depth: null });
+            return {
+                safe: false,
+                reason: error.guardrailResult?.info?.gaurdrail_name,
+            };
         }
 
         throw error;
