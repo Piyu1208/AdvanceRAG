@@ -5,10 +5,25 @@ import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./queryTranslation.js";
 import { CohereRerank } from "@langchain/cohere";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
+import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema } from './schemas.js';
 
 dotenv.config();
 
 async function main(userQuery) {
+  //Query validation
+
+  const validation = UserQuerySchema.safeParse({
+    query: userQuery,
+  });
+
+  if (!validation.success) {
+    throw new Error(
+      `Invalid user query: ${validation.error.message}`
+    );
+  }
+
+  userQuery = validation.data.query;
+
   //responses
   let feedback;
   let response;
@@ -47,6 +62,11 @@ async function main(userQuery) {
   let feedbackQuery;
   let uniqueDocs;
   let retrievedDocs;
+  let rewriteResponse;
+  let parsedRewrite;
+  let validatedRewrite;
+  let transforms;
+  let validatedTransforms;
 
 
   // Initialise the vector store
@@ -70,18 +90,32 @@ async function main(userQuery) {
         // rewrite user query to include feedback info/keywords
         let missing_info = feedback.missing_information.join(", ");
 
-        feedbackQuery = await client.responses.create({
+        rewriteResponse = await client.responses.create({
           model: "gpt-5-nano",
           instructions: REWRITTER_PROMPT,
           input: `User Query: ${userQuery},
         Information to include: ${missing_info}`,
         });
 
-        feedbackQuery = JSON.parse(feedbackQuery.output_text).output;
+        try {
+          parsedRewrite = JSON.parse(rewriteResponse.output_text);
+        } catch (error) {
+          throw new Error("Rewritter returned invalid JSON");          
+        }
+
+        validatedRewrite = RewrittenQuerySchema.parse(parsedRewrite);
+
+        feedbackQuery = validatedRewrite.output;
       }
       // Rewrite user query => (rewrittenQuery)
-      const { stepback, subquestion, abstraction, rewriting, hyde } =
-        await generateAllQueryTransforms(feedbackQuery || userQuery);
+      transforms = await generateAllQueryTransforms(
+        feedbackQuery || userQuery
+      );
+
+      validatedTransforms = QueryTransformsSchema.parse(transforms);
+
+      let { stepback, subquestion, abstraction, rewriting, hyde } =
+        validatedTransforms;
 
       // Keep every tranformed query in an array
       rewrittenQueries = [stepback.output, 
@@ -137,7 +171,7 @@ async function main(userQuery) {
     console.log('Generating reponse...');
 
     // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
-    feedback = await client.responses.create({
+    let judgeResponse = await client.responses.create({
       model: "gpt-4o-mini",
       instructions: JUDGE_SYS_PROMPT,
       input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
@@ -155,24 +189,32 @@ async function main(userQuery) {
             `,
     });
 
+    let parsedFeedback;
 
+    try {
+      parsedFeedback = JSON.parse(judgeResponse.output_text);
+    } catch (error) {
+      throw new Error("Judge returned invalid JSON");
+    }
 
-    feedback = JSON.parse(feedback.output_text);
+    feedback = JudgeFeedbackSchema.parse(parsedFeedback);
+
     console.log("Feedback: ", feedback);
     retry = feedback.retry;
 
     if (!retry || (i === MAX_RETRIES)) {
       console.log('Success.');
       return response.output_text;
-    } else {
-      console.log('Retrying...');
-      failure_type = feedback.failure_type;
-    }
+    } 
+
+    console.log('Retrying...');
+    failure_type = feedback.failure_type;
+
   };
 };
 
 
-const answer = await main("What is Expo? What are 10 difference between expo and react?");
+const answer = await main("What is Expo? What are 8 differences between expo and react?");
 
 console.log('FINAL ANSWER: ', answer);
 
