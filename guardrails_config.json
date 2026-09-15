@@ -1,6 +1,5 @@
 {
   "version": 1,
-
   "pre_flight": {
     "version": 1,
     "guardrails": [
@@ -19,7 +18,6 @@
       }
     ]
   },
-
   "input": {
     "version": 1,
     "guardrails": [
@@ -28,6 +26,16 @@
         "config": {
           "model": "gpt-4.1-mini",
           "confidence_threshold": 0.7,
+          "include_reasoning": false,
+          "max_turns": 1
+        }
+      },
+      {
+        "name": "Off Topic Prompts",
+        "config": {
+          "model": "gpt-4.1-mini",
+          "confidence_threshold": 0.7,
+          "system_prompt_details": "This assistant is a course-specific learning assistant for a course about Expo and React Native.he assistant should consider a query ON-TOPIC if it is directly or reasonably related to: Expo and the Expo ecosystem, React Native development when used with Expo, Creating, developing, running, debugging, and deploying Expo applications, Expo CLI and development workflows, Expo SDKs and Expo modules, Expo Router and navigation in Expo applications, Expo APIs and libraries, Expo Go, Development builds and EAS, EAS Build, EAS Submit, and EAS Update, App configuration and app.json/app.config.js/app.config.ts, Native configuration and when Expo projects require native code, Android or iOS development concepts when they are relevant to building or deploying an Expo application, React concepts when they are directly relevant to understanding or building an Expo application, JavaScript or TypeScript concepts when they are directly relevant to an Expo/React Native application, Installing packages, dependencies, and configuring an Expo project, Common errors, debugging, and troubleshooting in Expo projects, Performance, architecture, and best practices for Expo applications, Questions asking for comparisons between Expo and related React Native technologies, Questions about concepts taught in or necessary to understand the course content. The query may be considered ON-TOPIC even if it does not explicitly mention Expo, as long as the question has a clear and useful connection to building, understanding, debugging, or deploying an Expo/React Native application. Queries unrelated to software development, React Native, Expo, or the concepts needed to understand the course should be considered OFF-TOPIC. Do not classify a question as off-topic merely because the exact answer is not present in the course material. Off-topic classification is about the subject matter of the question, not whether the retrieved documents contain the answer.",
           "include_reasoning": false,
           "max_turns": 1
         }

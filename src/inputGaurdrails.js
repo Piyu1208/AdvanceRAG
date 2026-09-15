@@ -27,7 +27,7 @@ export async function checkInputGuardrails(query) {
             console.dir(error.guardrailResult?.info, { depth: null });
             return {
                 safe: false,
-                reason: error.guardrailResult?.info?.gaurdrail_name,
+                reason: error.guardrailResult?.info?.guardrail_name,
             };
         }
 
