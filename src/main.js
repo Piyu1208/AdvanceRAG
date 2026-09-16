@@ -236,14 +236,15 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("Who won fifa worldcup 2026? I want to create an Expo app displaying the winner team's info.");
+const answer = await main("How do I use expo router for navigation?.");
 
 let parsedAnswer;
 
 try {
   parsedAnswer = JSON.parse(answer);
 } catch (error) {
-  throw new Error("LLM returned invalid JSON");
+  console.log("FINAL ANSWER:", answer);
+  process.exit(0);
 }
 
 let finalAnswer = FinalAnswerSchema.parse(parsedAnswer);

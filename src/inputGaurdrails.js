@@ -1,7 +1,8 @@
 import { GuardrailsOpenAI, GuardrailTripwireTriggered } from '@openai/guardrails';
 
 
-const inputGuardrails = await GuardrailsOpenAI.create(
+
+const guardrails = await GuardrailsOpenAI.create(
     "../Advanced_RAG/guardrails_config.json",
     {
         baseURL: "https://aicredits.in/v1",
@@ -12,7 +13,7 @@ const inputGuardrails = await GuardrailsOpenAI.create(
 
 export async function checkInputGuardrails(query) {
     try {
-        await inputGuardrails.responses.create({
+        await guardrails.responses.create({
             model: "gpt-4o-mini",
             input: query,
         });

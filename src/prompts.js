@@ -12,6 +12,9 @@ If No: Output retry as true and exactly what's missing in short or in keywords?
     If Yes: it's a generation problem.
     If No: it's a retrieval problem.
 
+Also ensure every factual claim in the answer is suppoerted by the retrieved context. If not classisfy it as generation failure.
+Then also add appropriate feedback, in generation feedback.
+
 - Do not return markdown code fence.
 - Return JSON only.
 - If the query contains information completely irrelevant to the course do not label it as any failure, make retry: false. 
