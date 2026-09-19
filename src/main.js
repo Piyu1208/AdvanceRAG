@@ -1,11 +1,13 @@
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import { generateAllQueryTransforms } from "./rag/queryTranslation.js";
-import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
-import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './schemas.js';
-import { checkInputGuardrails } from "./inputGaurdrails.js";
+import { generateAllQueryTransforms } from "./prompts/queryTranslation.js";
+import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './rag/schemas.js';
+import { checkInputGuardrails } from "./rag/inputGaurdrails.js";
 import { vectorSearch } from './rag/vectorSearch.js';
 import { rerankDocs } from './rag/rerank.js';
+import { generateAnswer } from "./rag/generateAnswer.js";
+import { evaluateResponse } from "./rag/evaluateResponse.js";
+import { rewriteQuery } from "./prompts/rewriteQuery.js";
 
 dotenv.config();
 
@@ -84,14 +86,8 @@ async function main(userQuery) {
         console.log('Retrieval failure.');
 
         // rewrite user query to include feedback info/keywords
-        let missing_info = feedback.missing_information.join(", ");
-
-        rewriteResponse = await client.responses.create({
-          model: "gpt-5-nano",
-          instructions: REWRITTER_PROMPT,
-          input: `User Query: ${userQuery},
-        Information to include: ${missing_info}`,
-        });
+        let missingInfo = feedback.missing_information.join(", ");
+        rewriteResponse = await rewriteQuery(userQuery, missingInfo);
 
         try {
           parsedRewrite = JSON.parse(rewriteResponse.output_text);
@@ -103,7 +99,8 @@ async function main(userQuery) {
 
         feedbackQuery = validatedRewrite.output;
       }
-      // Rewrite user query => (rewrittenQuery)
+
+      // Query Translation
       transforms = await generateAllQueryTransforms(
         feedbackQuery || userQuery
       );
@@ -139,41 +136,13 @@ async function main(userQuery) {
       console.log('Query with generation feedback: ', userQuery);
     }
 
-    // SYS_PROMPT + Rerank documents + user query ==> Get LLM response.
-    response = await client.responses.create({
-      model: "gpt-4o-mini",
-      instructions: SYSTEM_PROMPT,
-      input: `User Documents: ${rerankedDocuments.map((e) =>
-        JSON.stringify({
-          module: e.metadata.module,
-          episode: e.metadata.episode,
-          content: e.pageContent,
-          startTime: e.metadata.startTime,
-          endTime: e.metadata.endTime
-        })).join("\n\n")}, 
-
-      User Query: ${userQuery}`,
-    });
+    // Generate Response
     console.log('Generating reponse...');
+    response = await generateAnswer(rerankedDocuments, userQuery);
+    
 
-    // JUDGE_PROMPT + Rerank documents + user query + LLM response ==> Seek feedback for LLM response.
-    let judgeResponse = await client.responses.create({
-      model: "gpt-4o-mini",
-      instructions: JUDGE_SYS_PROMPT,
-      input: `Retrieved Documents: ${rerankedDocuments.map((e) =>
-        JSON.stringify({
-          module: e.metadata.module,
-          episode: e.metadata.episode,
-          content: e.pageContent,
-          startTime: e.metadata.startTime,
-          endTime: e.metadata.endTime
-        })).join("\n\n")},
-
-        User Query: ${userQuery},
-
-        Answer: ${response.output_text}
-            `,
-    });
+    // Evaluate/Judge Response
+    let judgeResponse = await evaluateResponse(rerankedDocuments, userQuery, response);
 
     let parsedFeedback;
 
