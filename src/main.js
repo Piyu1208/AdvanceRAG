@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import OpenAI from "openai";
-import { generateAllQueryTransforms } from "./queryTranslation.js";
+import { generateAllQueryTransforms } from "./rag/queryTranslation.js";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
 import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './schemas.js';
 import { checkInputGuardrails } from "./inputGaurdrails.js";
@@ -65,10 +65,8 @@ async function main(userQuery) {
   let retry = false;
   let failure_type;
   let rewrittenQueries;
-  let docs;
   let rerankedDocuments;
   let feedbackQuery;
-  let uniqueDocs;
   let retrievedDocs;
   let rewriteResponse;
   let parsedRewrite;
@@ -128,7 +126,7 @@ async function main(userQuery) {
       retrievedDocs = await vectorSearch(rewrittenQueries);
 
       // Rank documents
-      rerankedDocuments = await rerankDocs(uniqueDocs, 
+      rerankedDocuments = await rerankDocs(retrievedDocs, 
         9, userQuery,
         feedbackQuery
       );

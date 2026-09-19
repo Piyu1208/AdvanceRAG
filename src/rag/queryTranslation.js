@@ -1,7 +1,4 @@
-import dotenv from "dotenv";
 import OpenAI from "openai";
-
-dotenv.config();
 
 const client = new OpenAI({
   baseURL: `https://aicredits.in/v1`,
