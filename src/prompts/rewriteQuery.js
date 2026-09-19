@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { REWRITTER_PROMPT } from "./prompts.js";
-import { RewrittenQuerySchema } from './rag/schemas.js';
+import { RewrittenQuerySchema } from '../rag/schemas.js';
 
 
 const client = new OpenAI({

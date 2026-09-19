@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { JUDGE_SYS_PROMPT } from "../prompts/prompts.js";
-import { JudgeFeedbackSchema } from './rag/schemas.js';
+import { JudgeFeedbackSchema } from './schemas.js';
 
 
 const client = new OpenAI({

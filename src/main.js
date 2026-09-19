@@ -73,8 +73,6 @@ async function main(userQuery) {
     if ((i === 0) || (failure_type === 'retrieval')) {
 
       if (i > 0) {
-        console.log('Retrieval failure.');
-
         // rewrite user query to include feedback info/keywords
         let missingInfo = feedback.missing_information.join(", ");
         feedbackQuery = await rewriteQuery(userQuery, missingInfo);
@@ -106,7 +104,6 @@ async function main(userQuery) {
     }
 
     if (failure_type === 'generation') {
-      console.log('Generation failure.');
       userQuery += `, ` + feedback.generation_feedback.join(', ');
 
       console.log('Query with generation feedback: ', userQuery);
@@ -134,7 +131,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("How does Expo implements hand gestures?");
+const answer = await main("What is Expo? How is it different from React Native, give at least 5 examples");
 
 console.log('FINAL ANSWER: ', answer.answer);
 console.log('Sources: ', answer.sources);

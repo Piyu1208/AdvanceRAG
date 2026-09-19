@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { SYSTEM_PROMPT } from "../prompts/prompts.js";
-import { FinalAnswerSchema } from './rag/schemas.js';
+import { FinalAnswerSchema } from './schemas.js';
 
 const client = new OpenAI({
     baseURL: `https://aicredits.in/v1`,

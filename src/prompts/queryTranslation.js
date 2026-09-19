@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { QueryTransformsSchema } from './rag/schemas.js';
+import { QueryTransformsSchema } from '../rag/schemas.js';
 
 const client = new OpenAI({
   baseURL: `https://aicredits.in/v1`,
