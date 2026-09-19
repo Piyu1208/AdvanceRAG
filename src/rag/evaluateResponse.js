@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { JUDGE_SYS_PROMPT } from "../prompts/prompts.js";
+import { JudgeFeedbackSchema } from './rag/schemas.js';
 
 
 const client = new OpenAI({
@@ -28,6 +29,16 @@ export async function evaluateResponse(rerankedDocuments, userQuery, response) {
             `,
     });
 
-    return judgeResponse;
+    let parsedFeedback;
+
+    try {
+        parsedFeedback = JSON.parse(judgeResponse.output_text);
+    } catch (error) {
+        throw new Error("Judge returned invalid JSON");
+    }
+
+    const feedback = JudgeFeedbackSchema.parse(parsedFeedback);
+
+    return feedback;
 }
 

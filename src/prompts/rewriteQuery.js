@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { REWRITTER_PROMPT } from "./prompts.js";
+import { RewrittenQuerySchema } from './rag/schemas.js';
 
 
 const client = new OpenAI({
@@ -16,5 +17,13 @@ export async function rewriteQuery(userQuery, missingInfo) {
         Information to include: ${missingInfo}`,
     });
 
-    return rewriteResponse;
+    let parsedRewrite;
+    try {
+        parsedRewrite = JSON.parse(rewriteResponse.output_text);
+    } catch (error) {
+        throw new Error("Rewritter returned invalid JSON");
+    }
+
+    const validatedRewrite = RewrittenQuerySchema.parse(parsedRewrite);
+    return validatedRewrite.output;
 }

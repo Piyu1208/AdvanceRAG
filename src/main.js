@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
-import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./prompts/queryTranslation.js";
-import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './rag/schemas.js';
+import { UserQuerySchema, FinalAnswerSchema } from './rag/schemas.js';
 import { checkInputGuardrails } from "./rag/inputGaurdrails.js";
 import { vectorSearch } from './rag/vectorSearch.js';
 import { rerankDocs } from './rag/rerank.js';
@@ -28,6 +27,7 @@ async function main(userQuery) {
 
   userQuery = validation.data.query;
 
+  // Input guardrails
   const guardrailResult = await checkInputGuardrails(userQuery);
 
   if (!guardrailResult.safe) {
@@ -53,15 +53,9 @@ async function main(userQuery) {
   let feedback;
   let response;
 
-  // Create open ai client
-  const client = new OpenAI({
-    baseURL: `https://aicredits.in/v1`,
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
 
   // declare MAX_RETRIES = k
-  const MAX_RETRIES = 2;
+  const MAX_RETRIES = 1;
 
   // declare retry variable;
   let retry = false;
@@ -70,16 +64,12 @@ async function main(userQuery) {
   let rerankedDocuments;
   let feedbackQuery;
   let retrievedDocs;
-  let rewriteResponse;
-  let parsedRewrite;
-  let validatedRewrite;
-  let transforms;
-  let validatedTransforms;
 
 
 
   for (let i = 0; i <= MAX_RETRIES; i++) {
     console.log('Loop number: ', i + 1);
+
     if ((i === 0) || (failure_type === 'retrieval')) {
 
       if (i > 0) {
@@ -87,43 +77,29 @@ async function main(userQuery) {
 
         // rewrite user query to include feedback info/keywords
         let missingInfo = feedback.missing_information.join(", ");
-        rewriteResponse = await rewriteQuery(userQuery, missingInfo);
-
-        try {
-          parsedRewrite = JSON.parse(rewriteResponse.output_text);
-        } catch (error) {
-          throw new Error("Rewritter returned invalid JSON");
-        }
-
-        validatedRewrite = RewrittenQuerySchema.parse(parsedRewrite);
-
-        feedbackQuery = validatedRewrite.output;
+        feedbackQuery = await rewriteQuery(userQuery, missingInfo);
       }
 
       // Query Translation
-      transforms = await generateAllQueryTransforms(
-        feedbackQuery || userQuery
-      );
+      let { stepback, subquestions, rewriting, hyde } =
+        await generateAllQueryTransforms(
+          feedbackQuery || userQuery
+        );;
 
-      validatedTransforms = QueryTransformsSchema.parse(transforms);
-
-      let { stepback, subquestion, abstraction, rewriting, hyde } =
-        validatedTransforms;
 
       // Keep every tranformed query in an array
-      rewrittenQueries = [stepback.output,
-      ...subquestion.output,
-      abstraction.high_ab_output,
-      abstraction.less_ab_output,
-      rewriting.output,
-      hyde.output
+      rewrittenQueries = [stepback,
+        ...subquestions,
+        rewriting,
+        hyde
       ].filter(Boolean);
+
 
       // Run vector search for each query
       retrievedDocs = await vectorSearch(rewrittenQueries);
 
       // Rank documents
-      rerankedDocuments = await rerankDocs(retrievedDocs, 
+      rerankedDocuments = await rerankDocs(retrievedDocs,
         9, userQuery,
         feedbackQuery
       );
@@ -139,20 +115,10 @@ async function main(userQuery) {
     // Generate Response
     console.log('Generating reponse...');
     response = await generateAnswer(rerankedDocuments, userQuery);
-    
+
 
     // Evaluate/Judge Response
-    let judgeResponse = await evaluateResponse(rerankedDocuments, userQuery, response);
-
-    let parsedFeedback;
-
-    try {
-      parsedFeedback = JSON.parse(judgeResponse.output_text);
-    } catch (error) {
-      throw new Error("Judge returned invalid JSON");
-    }
-
-    feedback = JudgeFeedbackSchema.parse(parsedFeedback);
+    feedback = await evaluateResponse(rerankedDocuments, userQuery, response);
 
     console.log("Feedback: ", feedback);
     retry = feedback.retry;
@@ -168,7 +134,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("What is Expo? How do I use expo router for navigation?");
+const answer = await main("How does Expo implements hand gestures?");
 
 let parsedAnswer;
 
