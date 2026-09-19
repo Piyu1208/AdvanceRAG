@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { generateAllQueryTransforms } from "./prompts/queryTranslation.js";
-import { UserQuerySchema, FinalAnswerSchema } from './rag/schemas.js';
+import { UserQuerySchema } from './rag/schemas.js';
 import { checkInputGuardrails } from "./rag/inputGaurdrails.js";
 import { vectorSearch } from './rag/vectorSearch.js';
 import { rerankDocs } from './rag/rerank.js';
@@ -32,19 +32,31 @@ async function main(userQuery) {
 
   if (!guardrailResult.safe) {
     if (guardrailResult.reason === "Contains PII") {
-      return "I can't process requests containing personal information.";
+
+      return {
+        answer: "I can't process requests containing personal information.",
+        sources: []
+      };
     }
 
     if (guardrailResult.reason === "Jailbreak") {
-      return "I can't help with attempts to bypass my instructions.";
+      return {
+        answer: "I can't help with attempts to bypass my instructions.",
+        sources: []
+      };
     }
 
     if (guardrailResult.reason === "Off Topic Prompts") {
-      return "I can't answer questions irrelevant to the course."
+      return {
+        answer: "I can't answer questions irrelevant to the course.",
+        sources: []
+      };
     }
 
-    return "I can't process this request.";
-
+    return {
+      answer: "I can't process this request.",
+      sources: []
+    };
   }
 
 
@@ -122,7 +134,7 @@ async function main(userQuery) {
 
     if (!retry || (i === MAX_RETRIES)) {
       console.log('Success.');
-      return response.output_text;
+      return response;
     }
 
     failure_type = feedback.failure_type;
@@ -131,10 +143,10 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("What is Expo? How is it different from React Native, give at least 5 examples");
+const finalResponse = await main("What is Expo? How is it different from React Native, give at least 5 examples");
 
-console.log('FINAL ANSWER: ', answer.answer);
-console.log('Sources: ', answer.sources);
+console.log('FINAL ANSWER: ', finalResponse.answer);
+console.log('Sources: ', finalResponse.sources);
 
 
 

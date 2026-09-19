@@ -33,5 +33,7 @@ export async function generateAnswer(rerankedDocuments, userQuery) {
         throw new Error("LLM returned invalid JSON.");
     }
 
-    return FinalAnswerSchema.parse(parsedAnswer);
+    const answer = FinalAnswerSchema.parse(parsedAnswer);
+
+    return answer;
 }
