@@ -1,73 +1,55 @@
 import OpenAI from "openai";
+import { QueryTransformsSchema } from './rag/schemas.js';
 
 const client = new OpenAI({
   baseURL: `https://aicredits.in/v1`,
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const STEPBACK_SYSTEM_PROMPT = `
-You are a query translator in a RAG system. Your goal is
-to look at the user input query and step-back to find the
-fundamental principles, concepts that are in the user query and 
-based on that produce a fundamental or a high level question.
+const TRANSLATOR_SYSTEM_PROMPT = `
+You are a query translator in a RAG system. 
 
-- Do not give the solution or a solution plan.
-- Simply give a new high level question/query. 
-- Return JSON only.
+Given the user's query, produces THREE types of query transformations:
 
-OUTPUT_FORMAT:
-{
-"output": "..."
-}
-`;
+1. STEP-BACK QUESTION
+Step back from the specific details to find the fundamental principles, concepts that are in the user's query and 
+based on that produce exactly one fundamental/high level question.
 
-const SUBQUESTION_SYS_PROMPT = `
-You are a query translator in a RAG system. You have to look at the user query
-to form between 2-3 different short sub-questions by using problem decomsposition.
+- Produce exactly ONE high-level question.
+- Do not give the solution or a solution plan. 
+- Keep it concise
+
+
+2. SUB-QUESTIONS
+Decompose the user's query to form exact 3 different short sub-questions by using problem decomsposition.
 
 - Do not give the answer/solution or an action plan.
 - Make sure each question is different and has a distinct role.
-- Make sure the questions are concise.
+- Keep the questions concise.
 - Only give questions that are relavant to retrieve evidence to solve the user's query.
 - Simply give the sub-questions/queries.
-- Return JSON only.
 
-OUTPUT_FORMAT:
-{
-"number": "3",
-"output": ["...", "...", "..."],
-}
-`;
 
-const ABSTRACTION_SYS_PROMPT = `
-You are a query translater in a RAG system. Formulate 2 queries/questions
-one with high abstraction and the other with less abstraction based on the user's query.
-
-- Do not give the answer/solution to the user's query.
-- Simply give two queries one high abstraction the other with less abstraction.
-- Return JSON only.
-
-OUTPUT_FORMAT:
-{
-"high_ab_output": "...",
-"less_ab_output": "..."
-}
-`;
-
-const REWRITING_SYS_PROMPT = `
+3. REWRITTEN QUERY
 Rewrite the user's query so it is optimized for document retrieval, by
-understanding the user's intention, preserving the meaning but improve
+understanding the user's intention, preserving the meaning but improving
 clarity and specificty.
 
 - Do not give a solution/answer or an action plan to the user's query.
 - Simply output the rewritten query.
-- Return JSON only.
+- Keep it concise.
+
+
+Return JSON only.
 
 OUTPUT_FORMAT:
 {
-"output": "..."
+"stepback": "...",
+"subquestions": ["...", "...", "..."],
+"rewriting": "..."
 }
 `;
+
 
 const HYDE_SYS_PROMPT = `
 Given a question/query generate a hypothetical document that could contain information needed to answers that question.
@@ -98,19 +80,19 @@ async function generateQueryTransform(query, instructions) {
 
 
 export async function generateAllQueryTransforms(query) {
-  const [stepback, subquestion, abstraction, rewriting, hyde] = await Promise.all([
-    generateQueryTransform(query, STEPBACK_SYSTEM_PROMPT),
-    generateQueryTransform(query, SUBQUESTION_SYS_PROMPT),
-    generateQueryTransform(query, ABSTRACTION_SYS_PROMPT),
-    generateQueryTransform(query, REWRITING_SYS_PROMPT),
+  const [translator, hyde] = await Promise.all([
+    generateQueryTransform(query, TRANSLATOR_SYSTEM_PROMPT),
     generateQueryTransform(query, HYDE_SYS_PROMPT),
   ]);
 
-  return {
-    stepback,
-    subquestion,
-    abstraction,
-    rewriting,
-    hyde,
+  const result = {
+    stepback: translator.stepback,
+    subquestions: translator.subquestions,
+    rewriting: translator.rewriting,
+    hyde: hyde.output,
   };
+
+  const validatedTransforms = QueryTransformsSchema.parse(result);
+
+  return validatedTransforms;
 }

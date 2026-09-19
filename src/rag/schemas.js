@@ -10,26 +10,13 @@ export const UserQuerySchema = z.object({
 
 
 export const QueryTransformsSchema = z.object({
-    stepback: z.object({
-        output: z.string(),
-    }),
+    stepback: z.string(),
 
-    subquestion: z.object({
-        output: z.array(z.string()),
-    }),
+    subquestions: z.array(z.string()).length(3),
 
-    abstraction: z.object({
-        high_ab_output: z.string(),
-        less_ab_output: z.string(),
-    }),
+    rewriting: z.string(),
 
-    rewriting: z.object({
-        output: z.string(),
-    }),
-
-    hyde: z.object({
-        output: z.string(),
-    }),
+    hyde: z.string(),
 });
 
 export const RewrittenQuerySchema = z.object({
