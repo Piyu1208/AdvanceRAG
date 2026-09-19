@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { SYSTEM_PROMPT } from "../prompts/prompts.js";
+import { FinalAnswerSchema } from './rag/schemas.js';
 
 const client = new OpenAI({
     baseURL: `https://aicredits.in/v1`,
@@ -24,5 +25,13 @@ export async function generateAnswer(rerankedDocuments, userQuery) {
         User Query: ${userQuery}`,
     });
 
-    return response
+    let parsedAnswer;
+
+    try {
+        parsedAnswer = JSON.parse(response.output_text);
+    } catch {
+        throw new Error("LLM returned invalid JSON.");
+    }
+
+    return FinalAnswerSchema.parse(parsedAnswer);
 }

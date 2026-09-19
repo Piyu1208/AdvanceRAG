@@ -136,20 +136,8 @@ async function main(userQuery) {
 
 const answer = await main("How does Expo implements hand gestures?");
 
-let parsedAnswer;
-
-try {
-  parsedAnswer = JSON.parse(answer);
-} catch (error) {
-  console.log("FINAL ANSWER:", answer);
-  process.exit(0);
-}
-
-let finalAnswer = FinalAnswerSchema.parse(parsedAnswer);
-
-
-console.log('FINAL ANSWER: ', finalAnswer.answer);
-console.log('Sources: ', finalAnswer.sources);
+console.log('FINAL ANSWER: ', answer.answer);
+console.log('Sources: ', answer.sources);
 
 
 
