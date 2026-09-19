@@ -3,12 +3,14 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./queryTranslation.js";
-import { CohereRerank } from "@langchain/cohere";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
 import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './schemas.js';
 import { checkInputGuardrails } from "./inputGaurdrails.js";
+import { rerankDocs } from './rag/rerank.js';
 
 dotenv.config();
+
+
 
 async function main(userQuery) {
   //Query validation
@@ -56,12 +58,6 @@ async function main(userQuery) {
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  // Create cohere reranker client
-  const cohereRerank = new CohereRerank({
-    apiKey: process.env.COHERE_API_KEY, // Default
-    topN: 9,
-    model: "rerank-v4.0-pro",
-  });
 
   // Initialise the embedding model
   const embeddings = new OpenAIEmbeddings({
@@ -162,9 +158,10 @@ async function main(userQuery) {
       );
 
       // Rank documents
-      rerankedDocuments = await cohereRerank.compressDocuments(
-        uniqueDocs,
-        feedbackQuery || userQuery,
+      rerankedDocuments = await rerankDocs(uniqueDocs, 
+        9,
+        userQuery,
+        feedbackQuery
       );
     }
 
@@ -229,14 +226,13 @@ async function main(userQuery) {
       return response.output_text;
     }
 
-    console.log('Retrying...');
     failure_type = feedback.failure_type;
 
   };
 };
 
 
-const answer = await main("How do I use expo router for navigation?.");
+const answer = await main("How do I use expo router for navigation?. How is routing different from React native? Give 5 differences.");
 
 let parsedAnswer;
 
