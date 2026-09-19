@@ -1,11 +1,10 @@
 import dotenv from "dotenv";
-import { OpenAIEmbeddings } from "@langchain/openai";
-import { QdrantVectorStore } from "@langchain/qdrant";
 import OpenAI from "openai";
 import { generateAllQueryTransforms } from "./queryTranslation.js";
 import { JUDGE_SYS_PROMPT, SYSTEM_PROMPT, REWRITTER_PROMPT } from "./prompts.js";
 import { UserQuerySchema, QueryTransformsSchema, RewrittenQuerySchema, JudgeFeedbackSchema, FinalAnswerSchema } from './schemas.js';
 import { checkInputGuardrails } from "./inputGaurdrails.js";
+import { vectorSearch } from './rag/vectorSearch.js';
 import { rerankDocs } from './rag/rerank.js';
 
 dotenv.config();
@@ -59,15 +58,6 @@ async function main(userQuery) {
   });
 
 
-  // Initialise the embedding model
-  const embeddings = new OpenAIEmbeddings({
-    model: "text-embedding-3-small",
-    apiKey: process.env.OPENAI_API_KEY,
-    configuration: {
-      baseURL: "https://aicredits.in/v1",
-    },
-  });
-
   // declare MAX_RETRIES = k
   const MAX_RETRIES = 2;
 
@@ -86,16 +76,6 @@ async function main(userQuery) {
   let transforms;
   let validatedTransforms;
 
-
-  // Initialise the vector store
-  const vectorStore = await QdrantVectorStore.fromExistingCollection(
-    embeddings, // Use this embedding model
-    {
-      url: "http://localhost:6333",
-      collectionName: "course-cap",
-    },
-  );
-  const vectorRetriver = vectorStore.asRetriever({ k: 20 });
 
 
   for (let i = 0; i <= MAX_RETRIES; i++) {
@@ -145,22 +125,11 @@ async function main(userQuery) {
       ].filter(Boolean);
 
       // Run vector search for each query
-      retrievedDocs = await Promise.all(
-        rewrittenQueries.map((query) => vectorRetriver.invoke(query))
-      );
-
-      docs = retrievedDocs.flat();
-
-      uniqueDocs = Array.from(
-        new Map(
-          docs.map((doc) => [doc.metadata.id, doc])
-        ).values()
-      );
+      retrievedDocs = await vectorSearch(rewrittenQueries);
 
       // Rank documents
       rerankedDocuments = await rerankDocs(uniqueDocs, 
-        9,
-        userQuery,
+        9, userQuery,
         feedbackQuery
       );
     }
@@ -232,7 +201,7 @@ async function main(userQuery) {
 };
 
 
-const answer = await main("How do I use expo router for navigation?. How is routing different from React native? Give 5 differences.");
+const answer = await main("What is Expo? How do I use expo router for navigation?");
 
 let parsedAnswer;
 
